@@ -38,7 +38,13 @@ The procedure has been tested on an Arch Linux workstation, where
 
 `./prep >&prep.out`
 
-was used to create the simulation files. 
+was used to create the simulation files.
 
 The complete output from prep upon successful execition is
 provided for reference in the tarball b12-prepare-output.txz
+
+An example temperature-accelerated MD simulation (TAMD) using an earlier
+version of the b12 structure files performed with the OpenMM MD code can
+be found at the link below:
+
+https://drive.google.com/drive/folders/1v4ktKVx4JepigmvBuUEyX7T0H4CI1GuS?usp=sharing
