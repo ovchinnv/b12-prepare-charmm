@@ -21,7 +21,7 @@ solvated in a thin shell of water solvent.  More solvent can be added in
  Name:	|	Purpose:	|	Source:
  ---------------|----------------|----------------------------------
  GNU Octave|	Structure preparation|	Linux distribution/package
- VMD	|	Structure preparation|	(UIUC/TCBG)
+ VMD (v. >=1.9.3)	|	Structure preparation|	(UIUC/TCBG)
  NAMD2	|	Coordinate minimization|	(UIUC/TCBG)
  CRIMM	|	Model missing residues|	(Brooks group @ MSU)
  Python	|	To run CRIMM|		Linux distribution
