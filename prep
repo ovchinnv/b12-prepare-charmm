@@ -1,0 +1,188 @@
+#!/bin/bash
+# VO 7/16/2025
+# prepare structure for MD simulation in watershell
+#
+# Prerequisites:
+# Software:	Purpose:		Source:
+# -----------------------------------------------------------------
+# GNU Octave	Structure preparation	Linux distribution/package
+# VMD		Structure preparation	(UIUC/TCBG)
+# NAMD2		Coordinate minimization	(UIUC/TCBG)
+# CRIMM		Model missing residues	(Brooks group @ MSU)
+# Python	To run CRIMM under Linux
+# wget, gunzip
+#
+lib=util ;# various utility scripts for strucure preparation
+# existing directory with charmm parameters (comment to download from the MacKerrell group):
+#toppar=~/charmm/parameters/c36m ;# location or CHARMM topology/parameter files
+toppar=charmm36m/jul24
+if [[ 1 -eq 1 ]] ; then
+# existing directory with charmm parameters (comment to download from the MacKerrell group):
+if [[ -z $toppar || ! -d $toppar ]]; then
+ toppar=charmm36m
+ version="jul24"
+# download charm parameters :
+ echo "Downloading CHARMM 36 parameters..."
+ mkdir -p $toppar
+ pushd $toppar
+ wget https://mackerell.umaryland.edu/download.php?filename=CHARMM_ff_params_files/toppar_c36_${version}.tgz
+ tar -xf *${version}.tgz
+ mv toppar $version
+ toppar=${toppar}/${version}
+ popd
+fi
+export toppar=$toppar ;# make sure VMD sees this
+#
+pdbfile=1hzh.pdb
+if [[ ! -f $pdbfile ]] ; then
+ echo "Downloading PDB file $pdbfile..."
+ wget https://files.wwpdb.org/pub/pdb/data/structures/all/pdb/pdb${pdbfile%%.pdb}.ent.gz -O ${pdbfile}.gz
+ gunzip ${pdbfile}.gz
+fi
+#
+# modeling of the missing linker in python requires crimm, which was instaled locally using an alternative python environment
+if [[ ! -f HC2-AF2.pdb ]] ; then # unless model already exists
+crimm_env=~/python-crimm
+# activate it here (below I use syntax custom to ArchLinux):
+source ${crimm_env}/bin/activate ;# activate custom python environment
+python <<END
+import mkHC2.py ;# model missing loops in HC2
+END
+deactivate ;# deactivate custom environment
+fi
+#
+octave <<END
+prepare ;# split pdb into chains for psfgen
+relabel_model ;# renumber python model consistently with the original PDB
+END
+#
+vmd -dispdev text <<END
+source prepare.vmd ;# use psfgen to create initial structure with topology
+END
+#
+fi
+# prepare combined topology & parameter files:
+topfile=b12.top
+parfile=b12.par
+# topology :
+${lib}/mergetop \
+ "${toppar}/top_all36*_prot.rtf" \
+ "${toppar}/top_all36_carb.rtf" \
+ "${toppar}/toppar_water_ions.str" \
+ "${toppar}/stream/carb/toppar_all36_carb_glycopeptide.str" \
+
+# "${toppar}/nag-bma-man-gal-fuc-sia.str"
+# parameters :
+${lib}/mergepar "${toppar}/par_all36*_prot.prm" \
+ "${toppar}/par_all36_carb.prm" \
+ "${toppar}/toppar_water_ions.str" \
+ "${toppar}/stream/carb/toppar_all36_carb_glycopeptide.str" \
+
+# "${toppar}/nag-bma-man-gal-fuc-sia.str"
+#
+mv mergetop.top $topfile
+mv mergepar.par $parfile
+# empirical deletions without which NAMD will crash
+sed -i "/OG2D2/d" $parfile
+sed -i "/ON3/d" $parfile ;# remove NBFIX entry with ON3, which causes a namd crash
+sed -i "/OCL/d" $parfile
+sed -i "/OBL/d" $parfile
+sed -i "/O2L/d" $parfile
+sed -i "/OG2P1/d" $parfile
+#
+# minimize structure in vacuum with restraints
+# NOTE : in general, we may need to include chirality and/or trans backbone restraints (e.g. via VMD)
+echo "Running NAMD minimization in vacuum ..."
+nproc=`tail -n20 /proc/cpuinfo|grep "siblings"|awk '{print $3}'`;
+namd2 +p${nproc} <(echo "
+structure	${PWD}/b12.psf
+coordinates	${PWD}/b12.pdb
+paraTypeCharmm	on
+parameters	${PWD}/b12.par
+cutoff		9
+switchdist	7.5
+exclude		scaled1-4
+outputname	${PWD}/b12_m
+constraints	on
+consref		${PWD}/b12.pdb
+conskfile	${PWD}/b12.pdb
+conskcol	B
+temperature	0
+for {set i 0} {\$i <= 5 } {incr i } {
+ constraintscaling [expr {101-\$i*20}];
+ minimize 100
+}
+"); # NOTE: need absolute paths because the above creates a fake input file in a different dir
+# convert namd coordinate file to pdb:
+${lib}/namd2pdb b12.psf b12_m.coor
+sed -i "/CRYST/d" b12_m.pdb # remove box size string
+#
+# now, can solvate structure:
+octave <<END
+pdb='b12_m.pdb';
+mkwshell ; % create water coordinates in separate pdb files
+END
+#
+# combine water and protein using PSFGEN using VMD:
+watpdbs=(`ls WAT*pdb`);
+nwatpdbs=${#watpdbs[@]};
+name=b12;
+echo "Will add water in $nwatpdbs PDB files ${watpdbs[@]} to structure in $name ..."
+vmd -dispdev text <<END
+# note : could also do this in a separate script file as above
+# note the escaping of $ where needed
+package require psfgen
+topology ${toppar}/toppar_water_ions.str
+readpsf ${name}.psf    ;#read dry psf
+coordpdb ${name}_m.pdb ;#dry coordinates
+pdbalias residue TP3 TIP3
+for { set iwseg 1 } { \$iwseg <= $nwatpdbs } { incr iwseg } {
+ segment W\${iwseg} {
+   first none
+   last none
+   auto none
+   pdb WAT\${iwseg}.pdb
+ }
+ coordpdb WAT\${iwseg}.pdb
+}
+writepsf ${name}_s.psf ;# solvated (not neutralized)
+writepdb ${name}_s.pdb ;# solvated, not neutralized
+# neutralize via autoionize plugin:
+package require autoionize
+autoionize -psf ${name}_s.psf -pdb ${name}_s.pdb -sc 0.07 -seg IONS -o ${name}_sn
+END
+sed -i "/CRYST/d" ${name}_sn.pdb # remove box size string
+#
+# bare-bones NAMD minimization in all cores to check energies (should not be needed) :
+#
+echo "Running NAMD minimization of solvated system ..."
+namd2 +p${nproc} <(echo "
+structure	${PWD}/b12_sn.psf
+coordinates	${PWD}/b12_sn.pdb
+paraTypeCharmm	on
+parameters	${PWD}/b12.par
+cutoff		9
+switchdist	7.5
+exclude		scaled1-4
+outputname	${PWD}/b12_sn
+temperature	0
+minimize 100
+"); # NOTE: need absolute paths because the above creates a fake input file in a different dir
+#
+# create restraint and solvent mass files for openmm/watershell runs
+vmd -dispdev text -args b12_sn.psf b12_sn.pdb < ${lib}/vmd/mkres.vmd ;#restraints
+vmd -dispdev text -args b12_sn.psf b12_sn.pdb < ${lib}/vmd/mkmass.vmd ;#mass
+# create a rigid body restraint file that applies the restraint to fc only (fabs are completely free)
+export VMDSEL="( segid HC1 HC2 and resid 243 to 500 ) and name CA"
+export VMDTAG="rgbwgt"
+vmd -dispdev text -args b12_sn.psf b12_sn.pdb < ${lib}/vmd/mkres.vmd ;# for rigid-body restraints
+#fi
+
+# put structure files in a separate directory:
+echo "Copying prepared structure files to './struc'..."
+mkdir -p struc
+for f in b12_sn*p* b12.par b12.top ; do 
+# echo $f
+# ln -s -T ../$f struc/$f
+ cp -f $f struc/$f
+done

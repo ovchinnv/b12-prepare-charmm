@@ -1,0 +1,90 @@
+#!/bin/vmd
+mol delete all
+source util/vmd/colors.vmd
+
+set psffile b12
+
+mol load psf ${psffile}_sn.psf
+mol addfile ${psffile}_sn.pdb
+#mol addfile ${psffile}_sn.coor
+#mol addfile output_6506.dcd waitfor all
+
+set hiv [molinfo top]
+
+color Display {Background} gray
+axes location off
+mol delrep 0 $hiv
+display stereo SideBySide
+
+set cons noh;
+set style "ribbons 10 0 4.5";
+
+############# macros
+source hivmacros.vmd
+set selection fc
+source util/vmd/align.vmd
+####################
+# virus
+mol representation $style
+mol selection $cons and gp120
+mol color colorid $red
+mol addrep $hiv
+
+mol representation $style
+mol selection $cons and gp40
+mol color colorid $green
+mol addrep $hiv
+
+# antibody
+mol representation $style
+mol selection $cons and heavy0
+mol color colorid $yellow
+mol addrep $hiv
+
+mol representation $style
+mol selection $cons and heavy1
+mol color colorid $orange
+mol addrep $hiv
+
+mol representation $style
+mol selection $cons and light0
+mol color colorid $cyan
+mol addrep $hiv
+
+mol representation $style
+mol selection $cons and light1
+mol color colorid $blue
+mol addrep $hiv
+
+mol representation $style
+mol selection $cons and fc
+mol color colorid $red
+mol addrep $hiv
+
+mol representation lines
+mol selection  water
+mol color colorid $black
+#mol addrep $hiv
+
+mol representation lines
+mol selection protein and noh
+mol color name
+mol addrep $hiv
+
+mol representation vdw
+mol selection ion
+mol color name
+#mol addrep $hiv
+
+# show missing sidechain heavy atoms :
+mol representation $style
+mol selection beta 0 and not water and $cons
+mol color colorid $white
+#mol addrep $hiv
+
+# show sugars
+mol representation licorice
+mol selection ( glyco or ( resname ASN and name ND2 and within 2.5 of glyco ) ) and $cons
+mol color name
+mol addrep $hiv
+

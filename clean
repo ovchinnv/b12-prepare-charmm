@@ -1,0 +1,15 @@
+#!/bin/bash
+# remove all auto-generated files
+#
+files="HC* LC* S* *out nohup *log *BAK *coor *vel b12* WAT*pdb *disulfides* xwat.pdb"
+echo ${files[@]}
+keepfiles="HC2-AF*" ;# do not delete these files
+
+for f in ${keepfiles[@]}; do
+ echo $f
+ files=`echo ${files[@]} | sed "s/$f//g"`
+done
+
+rm ${files[@]}
+rm -fr __pycache__ charmm36m
+#rm -fr struc

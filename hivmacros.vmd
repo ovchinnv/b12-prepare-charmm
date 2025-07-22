@@ -1,0 +1,44 @@
+#!/bin/tcl
+# antibody macros (checn borders)
+
+ atomselect macro heavy { segid "H.*" or chain B}
+ atomselect macro light { segid "L.*" or chain C}
+
+ atomselect macro heavy0 { heavy and resid 1 to 111 } ;# variable
+ atomselect macro heavy1 { heavy and resid 112 to 230 } ;# constant
+
+ atomselect macro light0 { light and resid 1 to 109 }
+ atomselect macro light1 { light and resid 110 to 230 }
+
+ atomselect macro fc { heavy and not ( heavy0 or heavy1) }
+ 
+ atomselect macro fab1 { ( heavy0 or light0 or heavy1 or light1 ) and segid ".*1" }
+ atomselect macro fab2 { ( heavy0 or light0 or heavy1 or light1 ) and segid ".*2" }
+
+ atomselect macro constant { heavy1 or light1 }
+ atomselect macro variable { ( heavy0 or light0 ) }
+
+# virus macros
+#!/bin/vmd
+
+ atomselect macro gp120a { segid G120A or chain A}
+ atomselect macro gp120b { segid G120B }
+ atomselect macro gp120c { segid G120C }
+
+ atomselect macro gp120 { gp120a or gp120b or gp120c or segid "G.*"}
+
+ atomselect macro gp40a { segid G40A }
+ atomselect macro gp40b { segid G40B }
+ atomselect macro gp40c { segid G40C }
+
+ atomselect macro gp40 { gp40a or gp40b or gp40c }
+
+# atomselect macro gp120 {segid "G120.*" }
+# atomselect macro gp40 {segid "G40.*" }
+
+# glycan macros
+ atomselect macro glyco {resname NAG BMA MAN BMAN AMAN AGLCNA BGLCNA FUC GAL}
+
+# CD4 residues
+ atomselect macro cd4d { gp120 and resid 125 279 280 281 283 365 366 367 368 370 371 425 426 427 428 429 430 455 to 459 } ;# direct contact
+ atomselect macro cd4i { gp120 and resid 123 124 126 257 278 282 364 471 475 476 477 } ;# indirect contact

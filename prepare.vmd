@@ -1,0 +1,108 @@
+#!/bin/vmd
+package require psfgen
+
+set name b12
+#psfgen_logfile "prepare_psfgen.log" ;# valid for psfgen v2 only
+set nosugar 0
+set nsugar 2
+set nowat 0
+set nodisu 0
+
+set toppar "$env(toppar)"
+#topology alias 16AT 16AB ;# does not work to rename patches
+#topology alias 16BT 16BB
+# topology
+topology "${toppar}/top_all36_prot.rtf"
+topology "${toppar}/top_all36_carb.rtf"
+topology "${toppar}/toppar_water_ions.str"
+topology "${toppar}/stream/carb/toppar_all36_carb_glycopeptide.str"
+#topology "${toppar}/nag-bma-man-gal-fuc-sia.str" ;# could also use pdbalias to use alternative residue names
+
+segment HC1 {
+ first nter ;# optional if usign default terminal patches
+ last cter
+ pdb HC1.pdb
+}
+coordpdb HC1.pdb
+guesscoord
+
+segment HC2 {
+ first nter
+ last cter
+ pdb HC2-ALL.pdb
+}
+#coordpdb HC2.pdb ; # has missing loops
+coordpdb HC2-AF2I.pdb ; # model
+guesscoord
+
+segment LC1 {
+ first nter
+ last cter
+ pdb LC1.pdb
+}
+coordpdb LC1.pdb
+guesscoord
+
+segment LC2 {
+ first nter ;# optional if usign default terminal patches
+ last cter
+ pdb LC2.pdb
+}
+coordpdb LC2.pdb
+guesscoord
+
+if { ![info exists "nodisu"] } { set nodisu 0 }
+if { $nodisu == 0 } { source add_disulfides.vmd };
+guesscoord
+#
+topology alias NAG AGLCNA
+topology alias MAN AMAN
+topology alias BMA BMAN
+topology alias FUC AFUC
+topology alias GAL BGAL
+topology alias SIA ANE5AC
+#
+if { ![info exists "nosugar"] } { set nosugar 0 }
+#puts $nosugar
+if { $nosugar == 0 } {
+ for { set isugar 1 } { $isugar <= $nsugar } { incr isugar } {
+  set seg "S${isugar}"
+  segment $seg {
+   first none
+   last none
+   pdb ${seg}.pdb
+  }
+  coordpdb ${seg}.pdb
+# source patch file:
+  source ${seg}.vmd
+  guesscoord
+ }
+}
+# add peptidoglycan connections by hand (they seem to be missing in the PDB):
+# old pdb file (ca 2019):
+#patch NGLA HC1:314 S1:479
+#patch NGLA HC2:314 S2:479
+# new pdb file (ca 2025):
+patch NGLA HC1:314 S1:1
+patch NGLA HC2:314 S2:1
+guesscoord
+#
+regenerate angles dihedrals
+#
+if { ![info exists "nowat"] } { set nowat 0 }
+#puts $nowat
+if { $nowat == 0 } {
+ pdbalias residue TP3 TIP3
+ segment XWAT {
+  first none
+  last none
+  auto none
+  pdb xwat.pdb
+ }
+ coordpdb xwat.pdb
+ guesscoord
+}
+
+writepsf ${name}.psf
+writepdb ${name}.pdb ;# note that these are unmimimized coords, and could be sterically bad
+

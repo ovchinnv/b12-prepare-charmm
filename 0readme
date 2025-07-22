@@ -1,0 +1,23 @@
+7/16/25 : unsure how to best create a PDB with modeled loops
+ : used crimm, which is distributed under GPL; should be OK for commercial use
+ : a major issue is that loop modeling in crimm requires the rcsb reader, which downloads files from the PDB
+ : none of the file readers provided with crimm read enough of the pdb structure to be able to identify/model the
+ : missing sequence ; so, among other issues, this precludes the use of custom PDBs
+
+To install crimm under archlinux (other distros will be different):
+ python -m venv <env-name>
+where <env-name> is the name of a new environment specific to crimm that will be created to host it (inefficient,
+ but that is python for you ; the dependencies take 767M, even though the code itself is ~8M)
+ I used ~/python-crimm as the environment name
+then install using local pip, i.e.
+ ~/python-crimm/bin/pip install <path-to-crimm-git> 
+then, can activate the environment using
+ source envname/bin/activate
+deactivate using
+ deactivate
+
+7/17/25 : using vmd's autoionize to place ions, which works fine
+7/17/25 : applying rigid body restraints on the fc only, which requires a restraint file w/ weights
+
+7/22/2 : all of the preparation steps have been collected in 'prep', e.g. run
+./prep >& prep.out ; prep.out will contain the standard output as well as the errors & warnings
