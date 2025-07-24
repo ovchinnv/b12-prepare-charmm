@@ -13,6 +13,7 @@
 # wget, gunzip
 #
 lib=util ;# various utility scripts for strucure preparation
+namd2=namd2 ;# path+name of NAMD2 executable
 # existing directory with charmm parameters (comment to download from the MacKerrell group):
 #toppar=~/charmm/parameters/c36m ;# location or CHARMM topology/parameter files
 toppar=charmm36m/jul24
@@ -94,7 +95,7 @@ sed -i "/OG2P1/d" $parfile
 # NOTE : in general, we may need to include chirality and/or trans backbone restraints (e.g. via VMD)
 echo "Running NAMD minimization in vacuum ..."
 nproc=`tail -n20 /proc/cpuinfo|grep "siblings"|awk '{print $3}'`;
-namd2 +p${nproc} <(echo "
+$namd2 +p${nproc} <(echo "
 structure	${PWD}/b12.psf
 coordinates	${PWD}/b12.pdb
 paraTypeCharmm	on
@@ -156,7 +157,7 @@ sed -i "/CRYST/d" ${name}_sn.pdb # remove box size string
 # bare-bones NAMD minimization in all cores to check energies (should not be needed) :
 #
 echo "Running NAMD minimization of solvated system ..."
-namd2 +p${nproc} <(echo "
+$namd2 +p${nproc} <(echo "
 structure	${PWD}/b12_sn.psf
 coordinates	${PWD}/b12_sn.pdb
 paraTypeCharmm	on
